@@ -6,6 +6,7 @@ import socket
 import sys
 import time
 import string
+import re
 
 global server_is_running
 server_is_running = True
@@ -22,44 +23,51 @@ def handle_client(clientsocket, address):
 	header_array = []
 
 	header_byte_buffer = "" # all headers as we read them. To be send to host.
-
-	previous_header_line = "TEMP"
+	previous_header_line = "temp"
+	current_header_line = ""
 
 	while len(previous_header_line) != 0:
-		stillReadingLine = True
-		current_header_line = ""
-		while stillReadingLine:
-			curr_byte = clientsocket.recv(1) # Read the next byte
-			header_byte_buffer += curr_byte
-			if (curr_byte == '\n'):
-				stillReadingLine = False
-				# TODO: only add to header_array if its the type we ant
-				print current_header_line
-				header_array.append(current_header_line)
-				previous_header_line = current_header_line;
-				continue
-			if (curr_byte == '\r'):
-				continue
-			current_header_line += curr_byte
+		curr_byte = clientsocket.recv(1) # Read the next byte
+		header_byte_buffer += curr_byte
+		if (curr_byte == '\n'):
+			# TODO: only add to header_array if its the type we ant
+			print "current line: " + current_header_line
+			header_array.append(current_header_line)
+			previous_header_line = current_header_line;
+			current_header_line = ""
+			continue
+		if (curr_byte == '\r'):
+			continue
+		current_header_line += curr_byte
 
 	print "header done"
 
 	connection_closed = False
 	host = ""
-	hostport = 80
+	hostport = 80	# default port
+
 	for i in range(0, len(header_array)):
 		line = header_array[i]
-		if i == 0:
+		if i == 0:	# First line HTTP protocol
 			print  (time.strftime("%d %m %H:%M:%S")) + " >>> " + line # Do we print HTTP/1.0?
+			line_arr = re.split(' ',line)
+			print line_arr
+			if ("https://" in line_arr[1].lower()):				
+				hostport = 443
+
 		elif line[0:5].lower() == "host:":
-			host = line[5:].lower()
-			print host
-			host_arr = host.rsplit(':', 1)
-			host = host_arr[0]
+			host = line[6:].lower()
+			print "host: " + host
+
+			host_arr = host.rsplit(':', 1)		# split from the right, only split 1
+			print host_arr
 			if (len(host_arr) > 1):
-				hostport = host_arr[1]
-			# else if HTTPS -> 443
-			# else if HTTP -> 80
+				try:
+				    value = int(host_arr[1])		# port number
+				    host = host_arr[0]
+				    port = value
+				except ValueError:
+				    pass 	# not an int (port)
 
 		elif string.lower(line) == "connection: close":
 			connection_closed = true
