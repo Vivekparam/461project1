@@ -8,13 +8,46 @@ import time
 import string
 import re
 
-global server_is_running
+TIMEOUT = 10 # seconds
 server_is_running = True
 
 # Calls sys.exit
 def terminate():
 	# Exits the program
 	sys.exit()
+
+def timeout_function(connection):
+	connection.isClosed = True
+
+def reset_timer(connection):
+	#print "set_timer"
+	connection.timerLock.acquire() 
+	timer = connection.timer
+	if timer is not None:
+		timer.cancel()
+	timer = threading.Timer(TIMEOUT, timeout_function) 
+	timer.start()
+	connection.timerLock.release() 
+
+def handle_forwarding_to_server(thisConnection):
+	print "new thread: handle_forwarding_to_server"
+	try:
+		while True:
+			print "Waiting for data from client"
+			data = thisConnection.clientsocket.recv(16) # size = ?
+			reset_timer(thisConnection)
+			print "Recv'd from client: " + data
+			if data:
+				print "Sending to server: " + data
+				thisConnection.hostsocket.sendall(data)
+			elif connect_tunneling:
+				if thisConnection.isClosed:
+					break
+			else:
+				break
+	finally:
+		print "FINALLY"
+		thisConnection.hostsocket.close()
 
 # ***** RENAME THIS CHUNK LATER ***** #
 
@@ -26,6 +59,7 @@ def handle_client(clientsocket, address):
 	previous_header_line = "temp"
 	current_header_line = ""
 
+	# TODO tokenize all the header lines
 	while len(previous_header_line) != 0:
 		curr_byte = clientsocket.recv(1) # Read the next byte
 		header_byte_buffer += curr_byte
@@ -45,6 +79,7 @@ def handle_client(clientsocket, address):
 	connection_closed = False
 	host = ""
 	hostport = 80	# default port
+	connect_tunneling = False
 
 	for i in range(0, len(header_array)):
 		line = header_array[i]
@@ -52,6 +87,8 @@ def handle_client(clientsocket, address):
 			print  (time.strftime("%d %m %H:%M:%S")) + " >>> " + line # Do we print HTTP/1.0?
 			line_arr = re.split(' ',line)
 			print line_arr
+			if (line_arr[0].lower() == "CONNECT"):
+				connect_tunneling = True
 			if ("https://" in line_arr[1].lower()):				
 				hostport = 443
 
@@ -65,7 +102,7 @@ def handle_client(clientsocket, address):
 				try:
 				    value = int(host_arr[1])		# port number
 				    host = host_arr[0]
-				    port = value
+				    hostport = value
 				except ValueError:
 				    pass 	# not an int (port)
 
@@ -85,24 +122,43 @@ def handle_client(clientsocket, address):
 	# 		hostsocket.sendall(data)
 	# 	else: 
 	# 		break
+	
+	
 
+	if (connect_tunneling):
+		thisConnection = {
+			"clientsocket" : clientsocket,
+			"hostsocket" : hostsocket,
+			"isClosed": False,
+			"timerLock" : threading.Lock()
+		}
+		timer = threading.Timer(TIMEOUT, timeout_function, (thisConnection,))
+		timer.start()
+		thisConnection.timer = timer
+
+		connect_handle_thread = threading.Thread(target=handle_forwarding_to_server, args=(thisConnection,))
+		connect_handle_thread.setDaemon(True)
+		connect_handle_thread.start()
+
+	# thread forwarding from server to client
 	try:
 		while True:
 			print "Waiting for data from server"
 			data = hostsocket.recv(16) # size = ?
-
-
+			if (connect_tunneling):
+				reset_timer(thisConnection)
 			print "Recv'd from server: " + data
 			if data:
 				print "Sending to client: " + data
 				clientsocket.sendall(data)
+			elif connect_tunneling:
+				if thisConnection.isClosed:
+					break
 			else:
 				break
 	finally:
 		print "FINALLY"
 		clientsocket.close()
-
-
 
 # ***** We create a separate thread to read for eof from console ***** #
 
