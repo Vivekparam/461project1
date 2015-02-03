@@ -189,9 +189,9 @@ user_input_thread.start()
 
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 host = socket.gethostname()
-server.bind((host, int(sys.argv[2])))
+server.bind((host, int(sys.argv[1])))
 server.listen(5)
-print  (time.strftime("%d %m %H:%M:%S")) + " - Proxy listening on " + host + ":" + sys.argv[2]
+print  (time.strftime("%d %m %H:%M:%S")) + " - Proxy listening on " + host + ":" + sys.argv[1]
 
 
 # Loops while server_is_running is true,
