@@ -166,12 +166,12 @@ def handle_client(clientsocket, address):
 		while True:
 			time.sleep(SLEEP_TIME_BETWEEN_RECEIVING_DATA)
 			data = hostsocket.recv(SOCKET_RECV_SIZE)
-			if connect_tunneling:
+			if data: 
+				clientsocket.sendall(data)
+			elif connect_tunneling:
 				if thisConnection['isClosed']:
 					break
 				reset_timer(thisConnection)
-			elif data:
-				clientsocket.sendall(data)
 			else:
 				break
 	except Exception as e:
