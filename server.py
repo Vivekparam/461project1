@@ -51,9 +51,7 @@ def handle_forwarding_to_server(thisConnection):
 			time.sleep(SLEEP_TIME_BETWEEN_RECEIVING_DATA)
 			data = thisConnection['clientsocket'].recv(SOCKET_RECV_SIZE) 
 			reset_timer(thisConnection)
-			print "Recv'd from client: " + data
 			if data:
-				#print "Sending to server: " + data
 				thisConnection['hostsocket'].sendall(data)
 			elif thisConnection['isClosed']:			# half close? do we need an isClosed condition for each tunnel?
 				break
@@ -210,7 +208,7 @@ server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 host = socket.gethostname()
 server.bind((host, int(port_listening)))
 server.listen(5)
-message_log(" - Proxy listening on " + host + ":" + port_listening)
+message_log(" - Proxy listening on " + socket.gethostbyname(socket.gethostname()) + ":" + port_listening)
 
 # Loops while server_is_running is true, accepting packets from clients 
 def acceptConnections():
